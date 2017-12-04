@@ -19,7 +19,7 @@ function spglinecurvy{TA<:Union{joAbstractLinearOperator, AbstractArray},
                                     b::AbstractVector{ETb}, 
                                     project::Function,
                                     timeProject::Float64,
-                                    tau::Float64, 
+                                    tau::AbstractFloat,
                                     options::spgOptions,
                                     params::Dict{String,Any})
 
@@ -48,7 +48,8 @@ function spglinecurvy{TA<:Union{joAbstractLinearOperator, AbstractArray},
     while true
 
         xNew, tmp_itr = project(x - step*scale*g, tau, timeProject, options, params)
-        rNew = b - funForward(A, xNew, [], params)::Array{ETb,1}
+        #rNew = b - funForward(A, xNew, Array{ETx,1}(), params)::Array{ETb,1}
+        rNew = b - funForward(A, xNew, Array{ETx,1}(), params)
         nProd += 1
         fNew, dummy_g = funPenalty(rNew, params)
 
@@ -102,7 +103,7 @@ function spglinecurvy{TA<:Function, Tf<:Number, ETx<:Number,ETg<:Number, ETb<:Nu
                                     b::AbstractVector{ETb}, 
                                     project::Function,
                                     timeProject::Float64,
-                                    tau::Float64, 
+                                    tau::AbstractFloat, 
                                     options::spgOptions,
                                     params::Dict{String,Any})
 
@@ -128,16 +129,18 @@ function spglinecurvy{TA<:Function, Tf<:Number, ETx<:Number,ETg<:Number, ETb<:Nu
     rNew = Array{ETb,1}()
     fNew = zero(Tf)
     err = -1
+
     while true
 
-        xNew, tmp_itr = project(x - step*scale*g, tau, timeProject, options, params)
-        tmp1::Array{ETb,1} = funForward(A, xNew, [], params)[1]
-        rNew::Array{ETb,1} = b - tmp1
+        xNew, tmp_itr = project(x - step*scale*g, tau, timeProject, options, params)#GOOD
+        tmp1 = funForward(A, xNew, Array{ETx,2}(0,0), params)[1]
+        rNew = b - tmp1   #different from ml
+    if false
+        return rNew, xNew, b, x, g, step, scale, tau
+    end
         nProd += 1
 
-        #DEVNOTE# Expensive Line
         fNew, dummy_g = funPenalty(rNew, params)
-
         s = xNew - x
         gts = scale * real(g'*s)
 
@@ -145,7 +148,6 @@ function spglinecurvy{TA<:Function, Tf<:Number, ETx<:Number,ETg<:Number, ETb<:Nu
             err = EXIT_NODESCENT
             break
         end
-
         if fNew < fMax + gamma*step*gts
             err = EXIT_CONVERGED
             break
@@ -163,9 +165,9 @@ function spglinecurvy{TA<:Function, Tf<:Number, ETx<:Number,ETg<:Number, ETb<:Nu
         # we observe this in adjacent iterations, we drastically damp the
         # next search direction.
 
-        sNormOld = sNorm
+        sNormOld = copy(sNorm)
         sNorm = norm(s) / sqrt(n)
-        
+
         if abs(sNorm - sNormOld) <= 1e-6*sNorm
             gNorm = norm(g) / sqrt(n)
             scale = sNorm/gNorm/(2^nSafe)

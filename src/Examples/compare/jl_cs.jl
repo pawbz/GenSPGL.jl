@@ -16,21 +16,21 @@ function jl_cs()
     x0[p[1:k]] = sign.(randn(k))
 
     # Create a modelling op
-    F = joDFT(n)
+    F = joDCT(n)
     
     # Create a restriction op
     ind = randperm(n)
     ind = ind[1:Int(floor(0.6*n))]
-    R = joRestriction(n,ind)
+    R = joRestriction(n,ind, DDT = Float64, RDT = Float64)
 
     # Create data
-    b = R*A*x0
+    b = R*F*x0
 
     # Solve
     opts = spgOptions(optTol = 1e-4,
                          verbosity = 1)
 
-    @time x, r, g, info = spgl1(R*A, vec(b), tau = 0., sigma = 1e-3, options = opts) 
+    @time x, r, g, info = spgl1(R*F, vec(b), tau = 0., sigma = 1e-3, options = opts) 
 
     # Calc SNR of recovery
     SNR = -20*log10(norm(x0-x)/norm(x0));
